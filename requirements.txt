@@ -1,4 +1,6 @@
 streamlit
-pinecone == 2.2.2
+pinecone-client
 openai
 langchain == 0.0.240
+
+sentence_transformers

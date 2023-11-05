@@ -1,6 +1,6 @@
 streamlit
 pinecone-client
 openai
-langchain == 0.0.240
+langchain
 
 sentence_transformers

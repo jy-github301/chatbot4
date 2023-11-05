@@ -1,6 +1,5 @@
-streamlit
-pinecone-client
-openai
-langchain
-
-sentence_transformers
+streamlit==1.28.1
+openai==0.28.1
+pinecone-client==2.2.2
+langchain==0.0.240
+sentence-transformers==2.2.2

@@ -51,7 +51,9 @@ if prompt := st.chat_input(disabled=not openai_key):
 # Function to get the GPT3.5's response
 def get_assistant_response(allmessages):
 
-    chain = ConversationalRetrievalChain.from_llm(llm=ChatOpenAI(temperature=0.3, model_name="gpt-3.5-turbo",openai_api_key=OPENAI_API_KEY),
+    llm=ChatOpenAI(temperature=0.3, model_name="gpt-3.5-turbo",openai_api_key=OPENAI_API_KEY)
+
+    chain = ConversationalRetrievalChain.from_llm(llm,
                                               vectorstore.as_retriever(search_kwargs={'k': 5}),
                                               return_source_documents=True)
          

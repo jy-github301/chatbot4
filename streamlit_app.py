@@ -6,8 +6,6 @@ from langchain.vectorstores import Pinecone
 from langchain.llms import OpenAI
 import os
 from langchain.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 
 

@@ -1,8 +1,9 @@
 import streamlit as st
 import openai
-import pinecone
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 from langchain.vectorstores import Pinecone
+import pinecone
+
 
 st.set_page_config(page_title="Tax Pro 2022", page_icon="🦙", layout="centered", initial_sidebar_state="auto", menu_items=None)
 st.title("Chat with the Tax Pro 2022, powered by GPT3.5")

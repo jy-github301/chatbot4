@@ -1,6 +1,6 @@
 import streamlit as st
 
-import Pinecone
+import pinecone
 
 pinecone_key="8ddf1bc3-23b1-41d1-89a7-4052bf264f7c"
 pinecone_environment='gcp-starter'

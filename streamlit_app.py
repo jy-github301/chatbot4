@@ -1,39 +1,32 @@
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import ConversationChain
+from langchain.chains.conversation.memory import ConversationBufferWindowMemory
+from langchain.prompts import (
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+    ChatPromptTemplate,
+    MessagesPlaceholder
+)
 import streamlit as st
+from streamlit_chat import message
+from utils import *
 
-import pinecone
+st.subheader("Chatbot with Langchain, ChatGPT, Pinecone, and Streamlit")
 
-pinecone_key="8ddf1bc3-23b1-41d1-89a7-4052bf264f7c"
-pinecone_environment='gcp-starter'
-index_name = 'tax-rag'
+if 'responses' not in st.session_state:
+    st.session_state['responses'] = ["How can I assist you?"]
 
-# Set up Pinecone
+if 'requests' not in st.session_state:
+    st.session_state['requests'] = []
 
-pinecone.init(api_key=pinecone_key, environment=pinecone_environment)
-pinecone_index = pinecone.Index('tax-rag')
+if 'buffer_memory' not in st.session_state:
+            st.session_state.buffer_memory=ConversationBufferWindowMemory(k=3,return_messages=True)
 
-# Create a Streamlit widget for inputting vectors
-input_vector = st.text_input("Enter a vector (comma-separated):")
 
-# Convert the input to a list of floats
-query_vector = [float(x.strip()) for x in input_vector.split(",")]
+system_msg_template = SystemMessagePromptTemplate.from_template(template="""Answer the question as truthfully as possible using the provided context, 
+and if the answer is not contained within the text below, say 'I don't know'""")
 
-# Query Pinecone for similar vectors
-if query_vector:
-    results = pinecone_index.query(queries=[query_vector], top_k=10)
-    for result in results:
-        st.write(result)
 
-# Add a button for adding vectors to Pinecone
-add_button = st.button("Add vector")
-if add_button:
-    vector_input = st.text_input("Enter a vector to add (comma-separated):")
-    vector = [float(x.strip()) for x in vector_input.split(",")]
-    id_input = st.text_input("Enter an ID for the vector:")
-    pinecone_index.add(vectors=[vector], ids=[id_input])
+human_msg_template = HumanMessagePromptTemplate.from_template(template="{input}")
 
-# Add a slider for controlling the number of results to display
-num_results = st.slider("Number of results to display", min_value=1, max_value=100, value=10)
-if query_vector:
-    results = pinecone_index.query(queries=[query_vector], top_k=num_results)
-    for result in results:
-        st.write(result)
+prompt_template = ChatPromptTemplate.from_messages([system_msg_template, MessagesPlaceholder(variable_name="history"), human_msg_template])

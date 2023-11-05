@@ -1,58 +1,79 @@
-from langchain.chat_models import ChatOpenAI
-import pinecone
-from langchain.vectorstores import Pinecone
-from langchain.chains import ConversationChain
-from langchain.embeddings import SentenceTransformerEmbeddings
-
-from langchain.chains.conversation.memory import ConversationBufferWindowMemory
-from langchain.prompts import (
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-    ChatPromptTemplate,
-    MessagesPlaceholder
-)
-
 import streamlit as st
-from streamlit_chat import message
-from utils import *
+import openai
+import pinecone
+from langchain.embeddings.huggingface import HuggingFaceEmbeddings
+from langchain.vectorstores import Pinecone
 
-embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+st.set_page_config(page_title="Tax Pro 2022", page_icon="🦙", layout="centered", initial_sidebar_state="auto", menu_items=None)
+st.title("Chat with the Tax Pro 2022, powered by GPT3.5")
 
+# Sidebar for entering OpenAI key
+with st.sidebar:
+    st.title('OpenAI key')
+    if 'openai_key' in st.secrets:
+        st.success('OpenAI key already provided!', icon='✅')
+        openai_key = st.secrets['openai_key']
+    else:
+        openai_key = st.text_input('Enter OpenAI key:', type='password')
+        if not openai_key:
+            st.warning('Please enter your OpenAI key!', icon='⚠️')
+        else:
+            st.success('Proceed to entering your prompt message!', icon='👉')
 
+# Store chat messages, and initialize the chat message history
+if 'messages' not in st.session_state.keys():
+    st.session_state.messages = [{"role": "assistant", "content": "Ask me a question about the 2022 tax filing!"}]
 
-pinecone.init(
-    api_key="",  # find at app.pinecone.io
-    environment="us-east-1-aws"  # next to api key in console
-)
-index_name = "langchain-chatbot"
-index = Pinecone.from_documents(docs, embeddings, index_name=index_name)
+# Display the prior chat messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
 
+# User-provided prompt
+if prompt := st.chat_input(disabled=not openai_key):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
 
-def get_similiar_docs(query,k=1,score=False):
-  if score:
-    similar_docs = index.similarity_search_with_score(query,k=k)
-  else:
-    similar_docs = index.similarity_search(query,k=k)
-  return similar_docs
+openai.api_key = openai_key
 
+# Function to get the GPT3.5's response
+def get_assistant_response(messages):
+    r = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": m["role"], "content": m["content"]} for m in messages],
+    )
+    response = r.choices[0].message.content
+    return response
 
+# Pinecone key, environment, and index name used in the notebok
+pinecone_key = st.secrets['pinecone_key']
+pinecone_environment = st.secrets['pinecone_environment']
+index_name = st.secrets['index_name']
 
-st.subheader("Chatbot with Langchain, ChatGPT, Pinecone, and Streamlit")
+# Connect to pinecone database
+pinecone.init(api_key=pinecone_key, environment=pinecone_environment)
+index = pinecone.Index(index_name)
 
-if 'responses' not in st.session_state:
-    st.session_state['responses'] = ["How can I assist you?"]
+# Set embedding model and vectorstore, need to be used for prompt embedding and information retrieval from pinecone database
+embed_model = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
+vectorstore = Pinecone(index, embed_model.embed_query, 'text')
 
-if 'requests' not in st.session_state:
-    st.session_state['requests'] = []
-
-if 'buffer_memory' not in st.session_state:
-            st.session_state.buffer_memory=ConversationBufferWindowMemory(k=3,return_messages=True)
-
-
-system_msg_template = SystemMessagePromptTemplate.from_template(template="""Answer the question as truthfully as possible using the provided context, 
-and if the answer is not contained within the text below, say 'I don't know'""")
-
-
-human_msg_template = HumanMessagePromptTemplate.from_template(template="{input}")
-
-prompt_template = ChatPromptTemplate.from_messages([system_msg_template, MessagesPlaceholder(variable_name="history"), human_msg_template])
+# If last message is not from assistant, generate a new response
+if st.session_state.messages[-1]["role"] != "assistant":
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            # Retrieve similar prompts from pinecone database
+            prompt_retrived_content = vectorstore.similarity_search(st.session_state.messages[-1]["content"], k=3)
+            # Concatenate the retrieved prompts
+            new_prompt = st.session_state.messages[-1]["content"]
+            for document in prompt_retrived_content:
+                new_prompt = new_prompt+". "+str(document).split("page_content='")[1].split("', metadata=")[0].replace('\n','')
+            # Replace the original prompt with the concatenated prompts
+            new_messages = st.session_state.messages.copy()
+            new_messages[-1]["content"] = new_prompt
+            # Get the GPT3.5's response
+            response = get_assistant_response(new_messages)
+            st.write(response)
+    message = {"role": "assistant", "content": response}
+    st.session_state.messages.append(message) # Add response to message history

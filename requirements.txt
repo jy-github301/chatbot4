@@ -1,4 +1,4 @@
 streamlit
-pinecone-client
+pinecone
 openai
 langchain==0.0.240
